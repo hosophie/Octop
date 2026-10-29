@@ -827,6 +827,7 @@ def _ensure_user_sso_identities_schema(db: DatabasePool) -> None:
                   provider_id BIGINT NOT NULL REFERENCES sso_providers(id) ON DELETE CASCADE,
                   subject TEXT NOT NULL,
                   created_at BIGINT NOT NULL,
+                  profile TEXT NOT NULL DEFAULT '{}',
                   UNIQUE(user_id, provider_id),
                   UNIQUE(provider_id, subject)
                 )
@@ -841,6 +842,7 @@ def _ensure_user_sso_identities_schema(db: DatabasePool) -> None:
                 ON CONFLICT DO NOTHING
                 """
             )
+        _ensure_column(db, "user_sso_identities", "profile", "TEXT NOT NULL DEFAULT '{}'")
         return
     with db.connect() as conn:
         conn.executescript(
@@ -851,6 +853,7 @@ def _ensure_user_sso_identities_schema(db: DatabasePool) -> None:
               provider_id INTEGER NOT NULL REFERENCES sso_providers(id) ON DELETE CASCADE,
               subject TEXT NOT NULL,
               created_at INTEGER NOT NULL,
+              profile TEXT NOT NULL DEFAULT '{}',
               UNIQUE(user_id, provider_id),
               UNIQUE(provider_id, subject)
             );
@@ -861,6 +864,7 @@ def _ensure_user_sso_identities_schema(db: DatabasePool) -> None:
             WHERE sso_provider_id IS NOT NULL AND sso_subject IS NOT NULL;
             """
         )
+    _ensure_column(db, "user_sso_identities", "profile", "TEXT NOT NULL DEFAULT '{}'")
 
 
 def _ensure_usage_cache_schema(db: DatabasePool) -> None:

@@ -42,12 +42,18 @@ def me_payload(user: Any, server: Any) -> dict[str, Any]:
         payload["sso_linked"] = False
         payload["sso_kind"] = None
         payload["sso_identities"] = []
+        payload["sso_profile"] = None
         payload["has_password"] = True
         return payload
-    identities = [{"kind": item.kind} for item in server.user_manager.list_sso_identities(user.id)]
+    rows = server.user_manager.list_sso_identities(user.id)
+    identities = [{"kind": item.kind} for item in rows]
     payload["sso_identities"] = identities
     payload["sso_linked"] = bool(identities)
     payload["sso_kind"] = identities[0]["kind"] if identities else None
+    # IdP directory snapshot refreshed on each SSO login (WeCom: userid, name,
+    # departments, company). First linked identity that has one wins.
+    profile = next((dict(item.profile, kind=item.kind) for item in rows if item.profile), None)
+    payload["sso_profile"] = profile
     payload["has_password"] = row.password_hash is not None
     from octop.infra.users.profile_avatar import profile_avatar_url
 

@@ -47,6 +47,30 @@ export interface SsoIdentity {
   kind: string;
 }
 
+export interface SsoDepartment {
+  id: number;
+  name: string | null;
+  parentid: number | null;
+  /** Root → this department; any level (company, unit, team) can be picked from it. */
+  path: { id: number; name: string | null }[];
+}
+
+/** IdP directory snapshot refreshed on each SSO login (WeCom: user/get + departments). */
+export interface SsoProfile {
+  kind: string;
+  userid?: string;
+  name?: string;
+  position?: string;
+  /** WeCom ``external_profile.external_corp_name``; null when not set. */
+  company?: string | null;
+  departments?: SsoDepartment[];
+  main_department?: SsoDepartment | null;
+  /** Untouched ``user/get`` response. */
+  raw_user?: Record<string, unknown>;
+  /** Untouched ``auth/getuserdetail`` response, when WeCom returned a user_ticket. */
+  raw_user_detail?: Record<string, unknown>;
+}
+
 export interface OctopUser {
   id: number;
   username: string;
@@ -60,6 +84,7 @@ export interface OctopUser {
   sso_kind?: string | null;
   /** Linked SSO providers (multi-identity). */
   sso_identities?: SsoIdentity[];
+  sso_profile?: SsoProfile | null;
   has_password?: boolean;
   /** Preset character id. Empty means the built-in default portrait. */
   avatar_icon?: string | null;

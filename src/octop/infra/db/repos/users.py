@@ -33,6 +33,7 @@ class UserSsoIdentityRow:
     subject: str
     kind: str
     created_at: int
+    profile: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_row(cls, r: DbRow) -> UserSsoIdentityRow:
@@ -42,7 +43,22 @@ class UserSsoIdentityRow:
             subject=str(r["subject"]),
             kind=str(r["kind"]),
             created_at=int(r["created_at"]),
+            profile=_parse_profile(r["profile"]),
         )
+
+
+def _parse_profile(raw: object) -> dict[str, object]:
+    """Decode the IdP profile snapshot stored on ``user_sso_identities.profile``."""
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str) and raw:
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
 
 
 @dataclass(frozen=True)
@@ -168,7 +184,7 @@ class UserRepo:
     def list_sso_identities(self, user_id: int) -> builtins.list[UserSsoIdentityRow]:
         with self._db.connect() as conn:
             rows = conn.execute(
-                "SELECT i.user_id, i.provider_id, i.subject, i.created_at, p.kind "
+                "SELECT i.user_id, i.provider_id, i.subject, i.created_at, i.profile, p.kind "
                 "FROM user_sso_identities i "
                 "INNER JOIN sso_providers p ON p.id = i.provider_id "
                 "WHERE i.user_id = ? "
@@ -196,6 +212,20 @@ class UserRepo:
             conn.execute(
                 "UPDATE users SET sso_provider_id = ?, sso_subject = ? WHERE id = ?",
                 (provider_id, subject, user_id),
+            )
+
+    def update_sso_identity_profile(
+        self,
+        user_id: int,
+        *,
+        provider_id: int,
+        profile: dict[str, object],
+    ) -> None:
+        """Replace the IdP profile snapshot (name, departments, …) for one link."""
+        with self._db.transaction() as conn:
+            conn.execute(
+                "UPDATE user_sso_identities SET profile = ? WHERE user_id = ? AND provider_id = ?",
+                (json.dumps(profile, ensure_ascii=False), user_id, provider_id),
             )
 
     def remove_sso_identity(self, user_id: int, *, provider_id: int) -> bool:

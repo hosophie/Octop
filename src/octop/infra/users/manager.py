@@ -282,6 +282,7 @@ class UserManager:
                         self._services.user_repo.upsert_sso_identity(
                             uid, provider_id=provider_id, subject=subject
                         )
+                        self._store_sso_profile(uid, provider_id, claims)
                     except Exception as exc:
                         if not _is_unique_violation(exc):
                             raise
@@ -316,6 +317,7 @@ class UserManager:
                 row.id,
                 email=email,
             )
+            self._store_sso_profile(row.id, provider_id, claims)
             cached_user = self._users.get(row.username)
             if cached_user is None:
                 user = User(
@@ -370,6 +372,7 @@ class UserManager:
                 row.id,
                 email=email,
             )
+            self._store_sso_profile(row.id, provider_id, claims)
             self._services.audit_repo.write(
                 actor=row.username, action="user.sso_bind", target=row.username
             )
@@ -409,6 +412,18 @@ class UserManager:
                 actor=row.username, action="user.sso_unbind", target=row.username
             )
             return self._cached_or_row_user(row)
+
+    def _store_sso_profile(self, user_id: int, provider_id: int, claims: dict[str, Any]) -> None:
+        """Refresh the IdP profile snapshot (e.g. WeCom name / departments) on each login."""
+        profile = claims.get("sso_profile")
+        if not isinstance(profile, dict) or not profile:
+            return
+        try:
+            self._services.user_repo.update_sso_identity_profile(
+                user_id, provider_id=provider_id, profile=profile
+            )
+        except Exception:
+            logger.exception("failed to store SSO profile for user %s", user_id)
 
     def list_sso_identities(self, user_id: int) -> builtins.list[Any]:
         return self._services.user_repo.list_sso_identities(user_id)
